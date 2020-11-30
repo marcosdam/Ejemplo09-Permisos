@@ -30,21 +30,23 @@ import java.util.Date;
 
 public class MainActivity extends AppCompatActivity {
 
-
     // Request para devolver info
     private final int CAMARA_ACTION = 1;
     private final int TAKE_SAVE_ACTION = 2;
+    private final int OPEN_GALLERY_ACTION = 3;
 
     // Request Code de los permisos
     private final int CAMERA_PERMISSION = 100;
     private final int CALL_PERMISSION = 101;
     private final int TAKE_SAVE_PERMISSION = 102;
+    private final int OPEN_GALLERY_PERMISSION = 103;
 
     // Vista
     private EditText txtNumTel;
     private ImageButton btnLlamar;
     private ImageView imgCamara;
     private Button btnTakeSave;
+    private Button btnOpenGallery;
     // String de la ruta de la imágen para mostrarla
     private String currentPhotoPath;    // Uri al archivo
 
@@ -57,6 +59,7 @@ public class MainActivity extends AppCompatActivity {
         btnLlamar = findViewById(R.id.btnLlamar);
         imgCamara = findViewById(R.id.imgCamara);
         btnTakeSave = findViewById(R.id.btnTakeSave);
+        btnOpenGallery = findViewById(R.id.btnOpenGalleryAction);
 
         // click sobre Image View Cámara
         imgCamara.setOnClickListener(new View.OnClickListener() {
@@ -123,6 +126,26 @@ public class MainActivity extends AppCompatActivity {
             }
         });
 
+        btnOpenGallery.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                // 1. Comprueba versión de Android
+                if (Build.VERSION.SDK_INT < Build.VERSION_CODES.M){
+                    openGalleryAction();
+                }
+                else{
+                    // Comprueba si tengo permisos ya concedidos (LEER ALMACENAMIENTO EXTERNO)
+                    if (ContextCompat.checkSelfPermission(MainActivity.this, Manifest.permission.READ_EXTERNAL_STORAGE)
+                                    == PackageManager.PERMISSION_GRANTED){
+                        openGalleryAction();
+                    }else { // Pide los permisos
+                        String[] permisos = {Manifest.permission.READ_EXTERNAL_STORAGE};
+                        ActivityCompat.requestPermissions(MainActivity.this, permisos, OPEN_GALLERY_PERMISSION);
+                    }
+                }
+            }
+        });
+
     }
 
     private void camaraAction() {
@@ -172,6 +195,15 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
+    // ABRIR GALERÍA (botón)
+    private void openGalleryAction() {
+        Intent intentOpenGallery = new Intent(Intent.ACTION_GET_CONTENT);
+        // Filtro para abrir cualquier imagen en cualquier extensión
+        intentOpenGallery.setType("image/*");
+
+        startActivityForResult(intentOpenGallery, OPEN_GALLERY_ACTION);
+    }
+
 
     // Método asociado a requestPermissions() -> (como onActivityResult con startActivityForResult)
     /**
@@ -209,6 +241,15 @@ public class MainActivity extends AppCompatActivity {
                 Toast.makeText(this, "No puedo hacer nada sin permisos", Toast.LENGTH_SHORT).show();
             }
         }
+
+        // Lo mismo para Leer Almacenamiento Externo
+        if (requestCode == OPEN_GALLERY_PERMISSION){
+            if (permissions.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED){
+                openGalleryAction();
+            }else{
+                Toast.makeText(this, "No puedo leer el almacenamiento externo sin permisos", Toast.LENGTH_SHORT).show();
+            }
+        }
     }
 
     // Para mostrar la foto realizada en el ImageView
@@ -233,6 +274,12 @@ public class MainActivity extends AppCompatActivity {
             intentMediaScan.setData(Uri.fromFile(f));
             this.sendBroadcast(intentMediaScan);
             */
+        }
+
+        // startActivityForResult para Abrir Galería
+        if (requestCode == OPEN_GALLERY_ACTION && resultCode == RESULT_OK && data != null){
+            Uri uriFile = data.getData();
+            imgCamara.setImageURI(uriFile);
         }
     }
 

@@ -21,6 +21,7 @@ import android.widget.Button;
 import android.widget.EditText;
 import android.widget.ImageButton;
 import android.widget.ImageView;
+import android.widget.TextView;
 import android.widget.Toast;
 
 import java.io.File;
@@ -40,6 +41,7 @@ public class MainActivity extends AppCompatActivity {
     private final int CALL_PERMISSION = 101;
     private final int TAKE_SAVE_PERMISSION = 102;
     private final int OPEN_GALLERY_PERMISSION = 103;
+    private final int LOCATION_PERMISSION = 104;
 
     // Vista
     private EditText txtNumTel;
@@ -47,6 +49,9 @@ public class MainActivity extends AppCompatActivity {
     private ImageView imgCamara;
     private Button btnTakeSave;
     private Button btnOpenGallery;
+    private Button btnLocation;
+    private TextView txtDireccion;
+    private TextView txtCoordenadas;
     // String de la ruta de la imágen para mostrarla
     private String currentPhotoPath;    // Uri al archivo
 
@@ -60,19 +65,22 @@ public class MainActivity extends AppCompatActivity {
         imgCamara = findViewById(R.id.imgCamara);
         btnTakeSave = findViewById(R.id.btnTakeSave);
         btnOpenGallery = findViewById(R.id.btnOpenGalleryAction);
+        btnLocation = findViewById(R.id.btnGetLocation);
+        txtCoordenadas = findViewById(R.id.txtCoordenadas);
+        txtDireccion = findViewById(R.id.txtDireccion);
 
         // click sobre Image View Cámara
         imgCamara.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
                 // 1. COMPROBAR QUÉ VERSIÓN DE ANDROID USO (PEDIR PERMISO EXPLÍCITO PARA POSTERIORES A ANDROID 6)
-                if (Build.VERSION.SDK_INT < Build.VERSION_CODES.M){ // API 23 (Android 6)
+                if (Build.VERSION.SDK_INT < Build.VERSION_CODES.M) { // API 23 (Android 6)
                     camaraAction();
-                }else{
+                } else {
                     // Si tengo los permisos llamo a la función, y si no -> Pedir permisos "manualmente"
-                    if (ContextCompat.checkSelfPermission(MainActivity.this, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED){
+                    if (ContextCompat.checkSelfPermission(MainActivity.this, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED) {
                         camaraAction();
-                    }else{  // Lanzamos alerta emergente (Permitir a la App acceder a las llamadas?)
+                    } else {  // Lanzamos alerta emergente (Permitir a la App acceder a las llamadas?)
                         ActivityCompat.requestPermissions(MainActivity.this, new String[]{Manifest.permission.CAMERA}, CAMERA_PERMISSION);
                     }
                 }
@@ -84,15 +92,15 @@ public class MainActivity extends AppCompatActivity {
             @Override
             public void onClick(View view) {
                 // Si el txt no está vacío, llamamremos cuando pulsemos el botón
-                if (!txtNumTel.getText().toString().isEmpty()){
+                if (!txtNumTel.getText().toString().isEmpty()) {
                     // 1. COMPROBAR QUÉ VERSIÓN DE ANDROID USO (PEDIR PERMISO EXPLÍCITO PARA POSTERIORES A ANDROID 6)
-                    if (Build.VERSION.SDK_INT < Build.VERSION_CODES.M){ // API 23 (Android 6)
+                    if (Build.VERSION.SDK_INT < Build.VERSION_CODES.M) { // API 23 (Android 6)
                         llamadaAction();
-                    }else{
+                    } else {
                         // Si tengo los permisos llamo a la función, y si no -> Pedir permisos "manualmente"
-                        if (ContextCompat.checkSelfPermission(MainActivity.this, Manifest.permission.CALL_PHONE) == PackageManager.PERMISSION_GRANTED){
+                        if (ContextCompat.checkSelfPermission(MainActivity.this, Manifest.permission.CALL_PHONE) == PackageManager.PERMISSION_GRANTED) {
                             llamadaAction();
-                        }else{  // Lanzamos alerta emergente (Permitir a la App acceder a las llamadas?)
+                        } else {  // Lanzamos alerta emergente (Permitir a la App acceder a las llamadas?)
                             ActivityCompat.requestPermissions(MainActivity.this, new String[]{Manifest.permission.CALL_PHONE}, CALL_PERMISSION);
                         }
                     }
@@ -106,17 +114,16 @@ public class MainActivity extends AppCompatActivity {
             @Override
             public void onClick(View v) {
                 // 1. Comprueba versión de Android
-                if (Build.VERSION.SDK_INT < Build.VERSION_CODES.M){
+                if (Build.VERSION.SDK_INT < Build.VERSION_CODES.M) {
                     takeSaveAction();
-                }
-                else{
+                } else {
                     // Comprueba si tengo permisos ya concedidos
-                    if (ContextCompat.checkSelfPermission(MainActivity.this,Manifest.permission.CAMERA)
+                    if (ContextCompat.checkSelfPermission(MainActivity.this, Manifest.permission.CAMERA)
                             == PackageManager.PERMISSION_GRANTED &&
                             ContextCompat.checkSelfPermission(MainActivity.this, Manifest.permission.WRITE_EXTERNAL_STORAGE)
-                                    == PackageManager.PERMISSION_GRANTED){
+                                    == PackageManager.PERMISSION_GRANTED) {
                         takeSaveAction();
-                    }else { // Pide los permisos
+                    } else { // Pide los permisos
                         String[] permisos = {Manifest.permission.CAMERA, Manifest.permission.WRITE_EXTERNAL_STORAGE};
                         ActivityCompat.requestPermissions(MainActivity.this, permisos, TAKE_SAVE_PERMISSION);
 
@@ -126,25 +133,53 @@ public class MainActivity extends AppCompatActivity {
             }
         });
 
+        // BOTÓN ABRIR GALERÍA
         btnOpenGallery.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
                 // 1. Comprueba versión de Android
-                if (Build.VERSION.SDK_INT < Build.VERSION_CODES.M){
+                if (Build.VERSION.SDK_INT < Build.VERSION_CODES.M) {
                     openGalleryAction();
-                }
-                else{
+                } else {
                     // Comprueba si tengo permisos ya concedidos (LEER ALMACENAMIENTO EXTERNO)
                     if (ContextCompat.checkSelfPermission(MainActivity.this, Manifest.permission.READ_EXTERNAL_STORAGE)
-                                    == PackageManager.PERMISSION_GRANTED){
+                            == PackageManager.PERMISSION_GRANTED) {
                         openGalleryAction();
-                    }else { // Pide los permisos
+                    } else { // Pide los permisos
                         String[] permisos = {Manifest.permission.READ_EXTERNAL_STORAGE};
                         ActivityCompat.requestPermissions(MainActivity.this, permisos, OPEN_GALLERY_PERMISSION);
                     }
                 }
             }
         });
+
+        // Botón LOCALIZACIÓN
+        btnLocation.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                // 1. Comprueba versión de Android
+                if (Build.VERSION.SDK_INT < Build.VERSION_CODES.M) {
+                    takeSaveAction();
+                } else {
+                    // Comprueba si tengo permisos ya concedidos
+                    if (ContextCompat.checkSelfPermission(MainActivity.this, Manifest.permission.ACCESS_FINE_LOCATION)
+                            == PackageManager.PERMISSION_GRANTED &&
+                            ContextCompat.checkSelfPermission(MainActivity.this, Manifest.permission.ACCESS_COARSE_LOCATION)
+                                    == PackageManager.PERMISSION_GRANTED) {
+                        getLocationAction();
+                    } else { // Pide los permisos
+                        String[] permisos = {Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION};
+                        ActivityCompat.requestPermissions(MainActivity.this, permisos, LOCATION_PERMISSION);
+
+                    }
+                }
+            }
+        });
+
+    }
+
+    // Método para permitir geolocalización
+    private void getLocationAction() {
 
     }
 
@@ -172,12 +207,12 @@ public class MainActivity extends AppCompatActivity {
     }
 
     // RECOGE EL FICHERO VACÍO Y GUARDA LA FOTO TOMADA EN LA URI
-    private void takeSaveAction(){
+    private void takeSaveAction() {
         try {
             // 1. Crear un Fichero Vacío
             File photoFile = crearFichero();
             // Si photoFile es distinto de null obtendré url interna de la imágen (uri)
-            if (photoFile != null){
+            if (photoFile != null) {
                 Uri uriPhotoFile = FileProvider.getUriForFile(
                         this,
                         "com.marcosledesma.ejemplo09_permisos",
@@ -206,47 +241,49 @@ public class MainActivity extends AppCompatActivity {
 
 
     // Método asociado a requestPermissions() -> (como onActivityResult con startActivityForResult)
+
     /**
      * Se ejecuta justo después de que el usuario conteste a los permisos
-     * @param requestCode -> código de la petición de los permisos
-     * @param permissions -> String[] con los permisos que se han solicitado
+     *
+     * @param requestCode  -> código de la petición de los permisos
+     * @param permissions  -> String[] con los permisos que se han solicitado
      * @param grantResults ->  int[] con los resultados de las peticiones de cada permiso
      */
     @Override
     public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults);
         // Comprobar si has dado permisos o no (en qué posición de los array de String e int)
-        if (requestCode == CALL_PERMISSION){
-            if (permissions.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED){
+        if (requestCode == CALL_PERMISSION) {
+            if (permissions.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
                 llamadaAction();
-            }else {
+            } else {
                 Toast.makeText(this, "No puedo llamar sin permisos", Toast.LENGTH_SHORT).show();
             }
         }
         // Prácticamente lo mismo para la cámara
-        if (requestCode == CAMERA_PERMISSION){
-            if (permissions.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED){
+        if (requestCode == CAMERA_PERMISSION) {
+            if (permissions.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
                 camaraAction();
-            }else {
+            } else {
                 Toast.makeText(this, "No puedo usar la cámara sin permisos", Toast.LENGTH_SHORT).show();
             }
         }
 
         // Lo mismo para guardar la foto tomada (Este debe comprobar 2 permisos -> Cámara y escritura)
-        if (requestCode == TAKE_SAVE_PERMISSION){
+        if (requestCode == TAKE_SAVE_PERMISSION) {
             if (permissions.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED &&
-                    grantResults[1] == PackageManager.PERMISSION_GRANTED){
+                    grantResults[1] == PackageManager.PERMISSION_GRANTED) {
                 takeSaveAction();
-            }else{
+            } else {
                 Toast.makeText(this, "No puedo hacer nada sin permisos", Toast.LENGTH_SHORT).show();
             }
         }
 
         // Lo mismo para Leer Almacenamiento Externo
-        if (requestCode == OPEN_GALLERY_PERMISSION){
-            if (permissions.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED){
+        if (requestCode == OPEN_GALLERY_PERMISSION) {
+            if (permissions.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
                 openGalleryAction();
-            }else{
+            } else {
                 Toast.makeText(this, "No puedo leer el almacenamiento externo sin permisos", Toast.LENGTH_SHORT).show();
             }
         }
@@ -257,14 +294,14 @@ public class MainActivity extends AppCompatActivity {
     protected void onActivityResult(int requestCode, int resultCode, @Nullable Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
         // camaraAction (imageBitmap)
-        if (requestCode == CAMARA_ACTION && resultCode == RESULT_OK && data != null){
+        if (requestCode == CAMARA_ACTION && resultCode == RESULT_OK && data != null) {
             Bundle bundle = data.getExtras();
             Bitmap imageBitmap = (Bitmap) bundle.get("data");
             imgCamara.setImageBitmap(imageBitmap);
         }
 
         // takeSaveAction (currentPhotoPath -> Uri con la img)
-        if(requestCode == TAKE_SAVE_ACTION && resultCode == RESULT_OK){
+        if (requestCode == TAKE_SAVE_ACTION && resultCode == RESULT_OK) {
             imgCamara.setImageURI(Uri.parse(currentPhotoPath));
             /*
             // Si quiero guardar la foto en la galería tengo que notificarla
@@ -277,7 +314,7 @@ public class MainActivity extends AppCompatActivity {
         }
 
         // startActivityForResult para Abrir Galería
-        if (requestCode == OPEN_GALLERY_ACTION && resultCode == RESULT_OK && data != null){
+        if (requestCode == OPEN_GALLERY_ACTION && resultCode == RESULT_OK && data != null) {
             Uri uriFile = data.getData();
             imgCamara.setImageURI(uriFile);
         }

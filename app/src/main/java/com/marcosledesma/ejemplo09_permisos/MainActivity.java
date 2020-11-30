@@ -5,6 +5,7 @@ import androidx.annotation.Nullable;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
+import androidx.core.content.FileProvider;
 
 import android.Manifest;
 import android.content.Intent;
@@ -13,21 +14,39 @@ import android.graphics.Bitmap;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
+import android.os.Environment;
 import android.provider.MediaStore;
 import android.view.View;
+import android.widget.Button;
 import android.widget.EditText;
 import android.widget.ImageButton;
 import android.widget.ImageView;
 import android.widget.Toast;
 
+import java.io.File;
+import java.io.IOException;
+import java.text.SimpleDateFormat;
+import java.util.Date;
+
 public class MainActivity extends AppCompatActivity {
 
-    private final int CAMERA_PERMISSION = 99;
-    private final int CAMARA_ACTION = 101;
-    private final int CALL_PERMISSION = 100;
+
+    // Request para devolver info
+    private final int CAMARA_ACTION = 1;
+    private final int TAKE_SAVE_ACTION = 2;
+
+    // Request Code de los permisos
+    private final int CAMERA_PERMISSION = 100;
+    private final int CALL_PERMISSION = 101;
+    private final int TAKE_SAVE_PERMISSION = 102;
+
+    // Vista
     private EditText txtNumTel;
     private ImageButton btnLlamar;
     private ImageView imgCamara;
+    private Button btnTakeSave;
+    // String de la ruta de la imágen para mostrarla
+    private String currentPhotoPath;    // Uri al archivo
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -37,6 +56,7 @@ public class MainActivity extends AppCompatActivity {
         txtNumTel = findViewById(R.id.txtNumTelefono);
         btnLlamar = findViewById(R.id.btnLlamar);
         imgCamara = findViewById(R.id.imgCamara);
+        btnTakeSave = findViewById(R.id.btnTakeSave);
 
         // click sobre Image View Cámara
         imgCamara.setOnClickListener(new View.OnClickListener() {
@@ -78,6 +98,31 @@ public class MainActivity extends AppCompatActivity {
             }
         });
 
+
+        btnTakeSave.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                // 1. Comprueba versión de Android
+                if (Build.VERSION.SDK_INT < Build.VERSION_CODES.M){
+                    takeSaveAction();
+                }
+                else{
+                    // Comprueba si tengo permisos ya concedidos
+                    if (ContextCompat.checkSelfPermission(MainActivity.this,Manifest.permission.CAMERA)
+                            == PackageManager.PERMISSION_GRANTED &&
+                            ContextCompat.checkSelfPermission(MainActivity.this, Manifest.permission.WRITE_EXTERNAL_STORAGE)
+                                    == PackageManager.PERMISSION_GRANTED){
+                        takeSaveAction();
+                    }else { // Pide los permisos
+                        String[] permisos = {Manifest.permission.CAMERA, Manifest.permission.WRITE_EXTERNAL_STORAGE};
+                        ActivityCompat.requestPermissions(MainActivity.this, permisos, TAKE_SAVE_PERMISSION);
+
+                    }
+                }
+
+            }
+        });
+
     }
 
     private void camaraAction() {
@@ -85,6 +130,46 @@ public class MainActivity extends AppCompatActivity {
         Intent intentCamara = new Intent(MediaStore.ACTION_IMAGE_CAPTURE);
         // startActivityForResult porque ésta nos devolverá una imagen
         startActivityForResult(intentCamara, CAMARA_ACTION);
+    }
+
+    // CREAR FICHERO VACÍO (DESPUÉS LA CÁMARA LO RELLENARÁ CON LA FOTO TOMADA)
+    private File crearFichero() throws IOException {
+        // Momento en que presionamos botón (guardado en timeStamp)
+        String timeStamp = new SimpleDateFormat("yyyyMMdd_HHmmss").format(new Date());
+        // Nombre completo de la imágen
+        String imageFileName = "JPEG_" + timeStamp + "_";
+
+        File directoryPictures = getExternalFilesDir(Environment.DIRECTORY_PICTURES);
+        File image = File.createTempFile(
+                imageFileName, // Nombre de la imágen
+                ".jpg", // Extensión
+                directoryPictures); // Ruta donde almacenar
+        currentPhotoPath = image.getAbsolutePath();
+        return image;
+    }
+
+    // RECOGE EL FICHERO VACÍO Y GUARDA LA FOTO TOMADA EN LA URI
+    private void takeSaveAction(){
+        try {
+            // 1. Crear un Fichero Vacío
+            File photoFile = crearFichero();
+            // Si photoFile es distinto de null obtendré url interna de la imágen (uri)
+            if (photoFile != null){
+                Uri uriPhotoFile = FileProvider.getUriForFile(
+                        this,
+                        "com.marcosledesma.ejemplo09_permisos",
+                        photoFile);
+                // Intent
+                Intent intentTakeSave = new Intent(MediaStore.ACTION_IMAGE_CAPTURE);
+                // Le pasamos parámetro (enlace) donde queremos que se guarde
+                intentTakeSave.putExtra(MediaStore.EXTRA_OUTPUT, uriPhotoFile);
+                // Así la cámara tendrá la ruta donde guardar esa imágen
+                //
+                startActivityForResult(intentTakeSave, TAKE_SAVE_ACTION);
+            }
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
     }
 
 
@@ -114,17 +199,40 @@ public class MainActivity extends AppCompatActivity {
                 Toast.makeText(this, "No puedo usar la cámara sin permisos", Toast.LENGTH_SHORT).show();
             }
         }
+
+        // Lo mismo para guardar la foto tomada (Este debe comprobar 2 permisos -> Cámara y escritura)
+        if (requestCode == TAKE_SAVE_PERMISSION){
+            if (permissions.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED &&
+                    grantResults[1] == PackageManager.PERMISSION_GRANTED){
+                takeSaveAction();
+            }else{
+                Toast.makeText(this, "No puedo hacer nada sin permisos", Toast.LENGTH_SHORT).show();
+            }
+        }
     }
 
     // Para mostrar la foto realizada en el ImageView
     @Override
     protected void onActivityResult(int requestCode, int resultCode, @Nullable Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
-        // imageBitmap
+        // camaraAction (imageBitmap)
         if (requestCode == CAMARA_ACTION && resultCode == RESULT_OK && data != null){
-            Bundle bundle = new Bundle();
+            Bundle bundle = data.getExtras();
             Bitmap imageBitmap = (Bitmap) bundle.get("data");
             imgCamara.setImageBitmap(imageBitmap);
+        }
+
+        // takeSaveAction (currentPhotoPath -> Uri con la img)
+        if(requestCode == TAKE_SAVE_ACTION && resultCode == RESULT_OK){
+            imgCamara.setImageURI(Uri.parse(currentPhotoPath));
+            /*
+            // Si quiero guardar la foto en la galería tengo que notificarla
+            Intent intentMediaScan = new Intent(Intent.ACTION_MEDIA_SCANNER_SCAN_FILE);
+            File f = new File(currentPhotoPath);
+            // Meter file en el intent
+            intentMediaScan.setData(Uri.fromFile(f));
+            this.sendBroadcast(intentMediaScan);
+            */
         }
     }
 

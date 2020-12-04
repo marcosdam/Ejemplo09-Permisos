@@ -8,9 +8,15 @@ import androidx.core.content.ContextCompat;
 import androidx.core.content.FileProvider;
 
 import android.Manifest;
+import android.annotation.SuppressLint;
+import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.graphics.Bitmap;
+import android.location.Address;
+import android.location.Geocoder;
+import android.location.Location;
+import android.location.LocationManager;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
@@ -28,6 +34,8 @@ import java.io.File;
 import java.io.IOException;
 import java.text.SimpleDateFormat;
 import java.util.Date;
+import java.util.List;
+import java.util.Locale;
 
 public class MainActivity extends AppCompatActivity {
 
@@ -159,7 +167,7 @@ public class MainActivity extends AppCompatActivity {
             public void onClick(View v) {
                 // 1. Comprueba versión de Android
                 if (Build.VERSION.SDK_INT < Build.VERSION_CODES.M) {
-                    takeSaveAction();
+                    getLocationAction();
                 } else {
                     // Comprueba si tengo permisos ya concedidos
                     if (ContextCompat.checkSelfPermission(MainActivity.this, Manifest.permission.ACCESS_FINE_LOCATION)
@@ -180,7 +188,32 @@ public class MainActivity extends AppCompatActivity {
 
     // Método para permitir geolocalización
     private void getLocationAction() {
-
+        // Objeto LocationManager para Acceder a localización
+        LocationManager nLocManager = (LocationManager) getSystemService(Context.LOCATION_SERVICE);
+        // Debe devolver localización del dispositivo (o última posición conocida)
+        @SuppressLint("MissingPermission") Location loc = nLocManager.getLastKnownLocation(LocationManager.GPS_PROVIDER);
+        //
+        if (loc != null){
+            if(loc.getLatitude() != 0 && loc.getLongitude() != 0){
+                txtCoordenadas.setText("Longitud: " + loc.getLongitude() + " Latitud: " + loc.getLatitude());
+                // Saber dondé está esa latitud y longitud (Geocoder con contexto y configuración local del dispositivo)
+                // Transforma las coordenadas en una dirección tipo texto
+                Geocoder geocoder = new Geocoder(this, Locale.getDefault());
+                try {
+                    List<Address> direcciones = geocoder.getFromLocation(loc.getLatitude(), loc.getLongitude(), 1);
+                    // Si direcciones no están vacías
+                    if(!direcciones.isEmpty()){
+                        txtDireccion.setText(direcciones.get(0).getAddressLine(0));
+                    }else{
+                        txtDireccion.setText("No se pudo encontrar ninguna dirección");
+                    }
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
+            }
+        }else{
+            txtCoordenadas.setText("No tienes localización");
+        }
     }
 
     private void camaraAction() {
@@ -285,6 +318,16 @@ public class MainActivity extends AppCompatActivity {
                 openGalleryAction();
             } else {
                 Toast.makeText(this, "No puedo leer el almacenamiento externo sin permisos", Toast.LENGTH_SHORT).show();
+            }
+        }
+
+        // Lo mismo para Acceder a la localización (2 permisos)
+        if (requestCode == LOCATION_PERMISSION) {
+            if (permissions.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED
+                    && grantResults[1] == PackageManager.PERMISSION_GRANTED) {
+                getLocationAction();
+            } else {
+                Toast.makeText(this, "No puedo acceder a la localización sin permisos", Toast.LENGTH_SHORT).show();
             }
         }
     }
